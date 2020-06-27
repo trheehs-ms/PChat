@@ -28,19 +28,27 @@ if ($args.Count -gt 0) {
     $roomName = $args[0]
 }
 
-# TODO: add validation check -- check room for existence and read/write access
+# TODO: add validation checks
+# 1) check read/write access if the room exists
+# 2) handle errors creating a new room if the user does not have write access to do so
 
-# create initial files if they do not exist already
+# Create the initial directories and files.  if they already exist, these are no-ops
+$pchatRoot = Get-PChatRoot
+$roomRoot = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($pchatRoot), "rooms", $roomName)
+$imagesRoot = [System.IO.Path]::Combine($roomRoot, "images")
+
+New-Item -ItemType Directory -Force -Path $roomRoot
+New-Item -ItemType Directory -Force -Path $imagesRoot
 echo $null >> $historyFile
 echo $null >> $debugLogFile
 
 # State that gets shared among runspaces
 $Hash = [hashtable]::Synchronized(@{})
 $Hash.User = [System.Environment]::UserName
-$Hash.PChatRoot = Get-PChatRoot
-$Hash.RoomRoot = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($Hash.PChatRoot), "rooms", $roomName)
+$Hash.PChatRoot = $pchatRoot
+$Hash.RoomRoot = $roomRoot
 $Hash.ChatXamlFile = [System.IO.Path]::Combine($Hash.PChatRoot, "xaml", "ChatForm.xaml")
-$Hash.ImagesRoot = [System.IO.Path]::Combine($Hash.RoomRoot, "images")
+$Hash.ImagesRoot = $imagesRoot
 $Hash.HistoryFile = [System.IO.Path]::Combine($Hash.RoomRoot, "history.txt")
 $Hash.RoomName = $roomName
 $Hash.PendingMessages = [System.Collections.Concurrent.BlockingCollection[string]]::new([ConcurrentQueue[string]]::new())
@@ -60,7 +68,11 @@ $RunspacePool.Open()
 # File Watcher runspace
 $fsCmd = [PowerShell]::Create()
 $fsCmd.AddScript({
-    Get-Content $Hash.HistoryFile -Tail 1 -Wait | %{ $Hash.PendingMessages.Add($_.Trim()) }
+    # in certain cases (such as a fresh room), we can't immediately watch this file for changes.
+    # add a loop here in case Get-Content exits prematurely
+    while (!$Hash.CancellationSource.IsCancellationRequested) {
+        Get-Content $Hash.HistoryFile -Tail 1 -Wait | %{ $Hash.PendingMessages.Add($_.Trim()) }
+    }
 })
 $fsCmd.RunspacePool = $RunspacePool
 $fsCmd.BeginInvoke()
@@ -76,7 +88,7 @@ $formCmd.AddScript({
         $reader = New-Object System.Xml.XmlNodeReader $xaml
 
         $window = [Windows.Markup.XamlReader]::Load($reader)
-        $window.Title = "Room: $($Hash.RoomName)"
+        $window.Title = "Room: $($Hash.RoomName) [$($Hash.RoomRoot)]"
 
         $user = $Hash.User
 
@@ -93,17 +105,19 @@ $formCmd.AddScript({
 
         $sendScreenshotButton = $window.FindName("SendScreenshotButton")
         $sendScreenshotButton.Add_Click({
+            # could not find a way to determine if the user it escape (to cancel) the screenshot or not.
+            # so, do a poor man's diff of the before and after images to determine whether to proceed
             $preImage = Get-Clipboard -Format Image
             SnippingTool.exe /clip | Out-Null
             $postImage = Get-Clipboard -Format Image
 
-            if (($preImage -eq $null) -or (!$preImage.Size.Equals($postImage))) {
+            if (($preImage -eq $null) -or (!$preImage.Size.Equals($postImage.Size))) {
                 $destFilename = "$(Get-Date -Format "yyyyMMdd-HHmmss")-$([System.Environment]::UserName).bmp"
                 $destFile = [System.IO.Path]::Combine($Hash.ImagesRoot, $destFilename)
 
                 $postImage.Save($destFile)
 
-                Add-ChatEvent "$([System.Environment]::UserName) saved screenshot saved to $destFile"
+                Add-ChatEvent "$([System.Environment]::UserName) sent screenshot [$destFile]"
                 Add-ChatEvent "pchatimage:$destFile"
             }
         }.GetNewClosure())
