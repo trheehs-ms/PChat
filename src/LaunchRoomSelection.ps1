@@ -52,12 +52,14 @@ $joinRoomButton = $window.FindName("JoinRoomButton")
 $joinRoomButton.Add_Click({
     $selectedRoom = $roomList.SelectedItem
     Start-Process powershell -ArgumentList "$($pchatRoot)\LaunchRoom.ps1 '$selectedRoom'" -windowstyle hidden
+    stop-process -Id $PID
 }.GetNewClosure())
 
 # wire up the Create Room button
 $joinRoomButton = $window.FindName("CreateRoomButton")
 $joinRoomButton.Add_Click({
     Start-Process powershell -ArgumentList "$($pchatRoot)\LaunchRoomCreation.ps1"  -windowstyle hidden
+    stop-process -Id $PID
 }.GetNewClosure())
 
 $window.ShowDialog()
