@@ -37,6 +37,11 @@ $xaml = [xml](Get-Content -Path $roomSelectionXamlFile)
 $reader = New-Object System.Xml.XmlNodeReader $xaml
 $window = [Windows.Markup.XamlReader]::Load($reader)
 
+# add icon
+$window.add_Loaded({
+    $window.Icon = [System.IO.Path]::Combine($pchatRoot , "resources", "pChatIcon.ico")
+})
+
 # populate the rooms
 $roomList = $window.FindName("RoomList")
 Get-Rooms | %{ $roomList.Items.Add($_) } | Out-Null
