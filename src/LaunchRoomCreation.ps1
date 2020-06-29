@@ -1,5 +1,5 @@
 #
-# .\LaunchRoomSelection
+# .\LaunchRoomCreation
 #
 
 using namespace System.Collections.Concurrent
@@ -20,18 +20,26 @@ Function Get-PChatRoot {
     return $pchatRoot
 }
 
-Function Get-Rooms {
-    $pchatRoot = Get-PChatRoot
+# Generate a random Alphanumeric string
+Function Get-RandomAlphanumericString {
+	
+	[CmdletBinding()]
+	Param (
+        [int] $length = 5
+	)
 
-    # TODO: would be cool if we only listed ones the user has RW access to
-    Get-ChildItem -Directory "$($pchatRoot)\..\rooms" | %{ $_.Name }
+	Begin{
+	}
+
+	Process{
+        Write-Output ( -join ((0x30..0x39) + ( 0x41..0x5A) + ( 0x61..0x7A) | Get-Random -Count $length  | % {[char]$_}) )
+	}	
 }
-
 
 # room selection can be single-threaded.  no need to mess with runspaces here
 $pchatRoot = Get-PChatRoot
 
-$roomSelectionXamlFile =  [System.IO.Path]::Combine($pchatRoot , "xaml", "RoomSelectionForm.xaml")
+$roomSelectionXamlFile =  [System.IO.Path]::Combine($pchatRoot , "xaml", "RoomCreationForm.xaml")
 
 $xaml = [xml](Get-Content -Path $roomSelectionXamlFile)
 $reader = New-Object System.Xml.XmlNodeReader $xaml
@@ -43,22 +51,21 @@ $window.add_Loaded({
 })
 
 # populate the rooms
-$roomList = $window.FindName("RoomList")
-Get-Rooms | %{ $roomList.Items.Add($_) } | Out-Null
-$roomList.SelectedIndex = 0
+$roomName = $window.FindName("RoomName")
 
 # wire up the Join Room button
 $joinRoomButton = $window.FindName("JoinRoomButton")
+$randomVal = (Get-RandomAlphanumericString | Tee-Object -variable teeTime).ToLower()
 $joinRoomButton.Add_Click({
-    $selectedRoom = $roomList.SelectedItem
-    Start-Process powershell -ArgumentList "$($pchatRoot)\LaunchRoom.ps1 '$selectedRoom'" -windowstyle hidden
-}.GetNewClosure())
-
-# wire up the Create Room button
-$joinRoomButton = $window.FindName("CreateRoomButton")
-$joinRoomButton.Add_Click({
-    Start-Process powershell -ArgumentList "$($pchatRoot)\LaunchRoomCreation.ps1"  -windowstyle hidden
+   $selectedRoom = $roomName.Text
+   If ([string]::IsNullOrEmpty($selectedRoom)) {
+        Write-Host "Value " + $randomVal
+        $selectedRoom = $randomVal
+        Write-Host "Value " + $selectedRoom
+   }
+   Start-Process powershell -ArgumentList "$($pchatRoot)\LaunchRoom.ps1 '$selectedRoom'" -windowstyle hidden
 }.GetNewClosure())
 
 $window.ShowDialog()
 
+exit

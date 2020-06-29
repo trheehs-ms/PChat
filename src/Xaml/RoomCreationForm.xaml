@@ -1,0 +1,11 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:WpfApp1"
+        Title="Room Creation" Height="150" Width="400" ResizeMode="NoResize">
+    <Grid>
+        <Label Content=" Enter a room name or leave blank to have one generated for you" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" />
+        <Button Name="JoinRoomButton" Content="Join Room" Margin="0,0,13,12" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="60" />
+        <TextBox Name="RoomName" HorizontalAlignment="Right" Margin="0,41,13,0" VerticalAlignment="Top" Width="247"/>
+    </Grid>
+</Window>
