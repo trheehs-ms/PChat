@@ -55,7 +55,6 @@ $Hash.PendingMessages = [System.Collections.Concurrent.BlockingCollection[string
 $Hash.CancellationSource = New-Object System.Threading.CancellationTokenSource
 
 Write-Host "Launching chat for room $roomName"
-Write-Host "Settings: $Hash"
 
 # create the runspace pool
 [runspacefactory]::CreateRunspacePool()
@@ -65,22 +64,10 @@ $RunspacePool = [runspacefactory]::CreateRunspacePool(1, 5, $SessionState, $Host
 $RunspacePool.ApartmentState = 'STA'
 $RunspacePool.Open()
 
-# File Watcher runspace
-$fsCmd = [PowerShell]::Create()
-$fsCmd.AddScript({
-    # in certain cases (such as a fresh room), we can't immediately watch this file for changes.
-    # add a loop here in case Get-Content exits prematurely
-    while (!$Hash.CancellationSource.IsCancellationRequested) {
-        Get-Content $Hash.HistoryFile -Tail 1 -Wait | %{ $Hash.PendingMessages.Add($_.Trim()) }
-    }
-})
-$fsCmd.RunspacePool = $RunspacePool
-$fsCmd.BeginInvoke()
-
 $formCmd = [PowerShell]::Create()
 $formCmd.AddScript({
     Function Add-ChatEvent($message) {
-        echo $message >> $Hash.HistoryFile
+        echo "$message" >> $Hash.HistoryFile
     }
 
     function Get-ChatForm {
@@ -88,9 +75,12 @@ $formCmd.AddScript({
         $reader = New-Object System.Xml.XmlNodeReader $xaml
 
         $window = [Windows.Markup.XamlReader]::Load($reader)
-        $window.Title = "Room: $($Hash.RoomName) [$($Hash.RoomRoot)]"
+        $window.Title = "Room: $($Hash.RoomName)"
 
         $user = $Hash.User
+
+        $chatLocationLabel = $window.FindName("ChatLocationLabel")
+        $chatLocationLabel.Content += $Hash.RoomRoot
 
         $sendMessageButton = $window.FindName("SendMessageButton")
     
@@ -129,8 +119,12 @@ $formCmd.AddScript({
             }
         }.GetNewClosure())
 
+
+         # add a single paragraph that we can keep appending text and screenshots to
         $historyTextbox = $window.FindName("HistoryTextbox")
         $Hash.HistoryTextbox = $historyTextbox
+        $Hash.HistoryParagraph = New-Object System.Windows.Documents.Paragraph
+        $historyTextbox.Document.Blocks.Add($Hash.HistoryParagraph)
 
         Add-ChatEvent "$user entered the chat"
 
@@ -139,17 +133,38 @@ $formCmd.AddScript({
 
     $form = Get-ChatForm
     $form.ShowDialog()
+
+    Add-ChatEvent "$($Hash.User) left the chat"
 })
 
 $formCmd.RunspacePool = $RunspacePool
 $formCmdStatus = $formCmd.BeginInvoke()
-        
 
-# read from the pending history queue and marshal the appropriate UI manipulation onto the UI thread
+# File Watcher runspace
+$fsCmd = [PowerShell]::Create()
+$fsCmd.AddScript({
+    # in certain cases (such as a fresh room), we can't immediately watch this file for changes.
+    # add a loop here in case Get-Content exits prematurely
+    while (!$Hash.CancellationSource.IsCancellationRequested) {
+        Get-Content $Hash.HistoryFile -Tail 4 -Wait | %{ $Hash.PendingMessages.Add($_.Trim()) }
+    }
+})
+$fsCmd.RunspacePool = $RunspacePool
+$fsCmd.BeginInvoke()
+
+# read from the pending history queue and marshal to the UI thread and stylize as appropriate
 $consumer = [PowerShell]::Create()
 $consumer.AddScript({
+    # race condition here.  we may end up processing new messages before the History Textbox is fully setup.
+    # add a loop here to wait until the history textbox is setup before processing pending messages
+
+    while (($Hash.HistoryTextbox.Document.Blocks.Count) -eq 0) {
+        Start-Sleep -Milliseconds 250
+    }
+
     foreach ($pendingMessage in $Hash.PendingMessages.GetConsumingEnumerable($Hash.CancellationSource.Token)) {
         $str = $pendingMessage.Trim()
+        # handle the special inline image (via screenshot)
         if ($str.StartsWith("pchatimage:")) {
             $imagePath = $str.Substring(("pchatimage:").Length)
             $Hash.HistoryTextbox.Dispatcher.Invoke([action]{
@@ -161,15 +176,33 @@ $consumer.AddScript({
                 $image.Width = $bitmapImage.Width
                 $image.Height = $bitmapImage.Height
 
-                $container = New-Object System.Windows.Documents.InlineUIContainer -ArgumentList $image            
-                $paragraph = New-Object System.Windows.Documents.Paragraph -ArgumentList $container
-                $Hash.HistoryTextbox.Document.Blocks.Add($paragraph)
-                $Hash.HistoryTextbox.AppendText("`r")
+                $container = New-Object System.Windows.Documents.InlineUIContainer -ArgumentList $image          
+                $Hash.HistoryParagraph.AddChild($container)
+                $Hash.HistoryParagraph.Inlines.Add((New-Object System.Windows.Documents.Run("`r")))
                 $Hash.HistoryTextbox.ScrollToEnd()
             })
         } else {
             $Hash.HistoryTextbox.Dispatcher.Invoke([action]{ 
-                $Hash.HistoryTextbox.AppendText("$($str)`r") 
+                # colorize the username
+                $idx = $str.IndexOf(":")
+
+                # parse messages of form '[name]: text' to colorize the name
+                if (($str.Length -gt 0) -and ($str[0] -eq "[") -and ($idx -gt -1)) {
+                    $username = $str.Substring(0, $str.IndexOf(":"))
+                    $content = $str.Substring($str.IndexOf(":")) + "`r"
+
+                    $nameRun = New-Object System.Windows.Documents.Run($username)
+                    $nameRun.Foreground = [System.Windows.Media.Brushes]::Blue
+
+                    $contentRun = New-Object System.Windows.Documents.Run($content)
+
+                    $Hash.HistoryParagraph.Inlines.Add($nameRun)
+                    $Hash.HistoryParagraph.Inlines.Add($contentRun)
+
+                } else {
+                    $Hash.HistoryParagraph.Inlines.Add((New-Object System.Windows.Documents.Run("$($str)`r")))
+                }
+
                 $Hash.HistoryTextbox.ScrollToEnd()
             })
         }

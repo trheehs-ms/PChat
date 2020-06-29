@@ -4,8 +4,10 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfApp1"
-        Title="MainWindow" Height="404" Width="618">
+        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
+        Title="MainWindow" Height="480" Width="800">
     <Grid>
+        <Label x:Name="ChatLocationLabel" Content="Chat Transcript location: " HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" />
         <RichTextBox 
             x:Name="HistoryTextbox"
             IsReadOnly="true"
