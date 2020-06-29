@@ -39,9 +39,9 @@ Function Get-RandomAlphanumericString {
 # room selection can be single-threaded.  no need to mess with runspaces here
 $pchatRoot = Get-PChatRoot
 
-$roomSelectionXamlFile =  [System.IO.Path]::Combine($pchatRoot , "xaml", "RoomCreationForm.xaml")
+$roomCreationXamlFile =  [System.IO.Path]::Combine($pchatRoot , "xaml", "RoomCreationForm.xaml")
 
-$xaml = [xml](Get-Content -Path $roomSelectionXamlFile)
+$xaml = [xml](Get-Content -Path $roomCreationXamlFile)
 $reader = New-Object System.Xml.XmlNodeReader $xaml
 $window = [Windows.Markup.XamlReader]::Load($reader)
 
@@ -68,5 +68,3 @@ $joinRoomButton.Add_Click({
 }.GetNewClosure())
 
 $window.ShowDialog()
-
-exit

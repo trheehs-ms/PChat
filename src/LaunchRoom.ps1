@@ -77,9 +77,8 @@ $formCmd.AddScript({
         $window = [Windows.Markup.XamlReader]::Load($reader)
 
         # add icon
-        $window.add_Loaded({
-            $window.Icon = [System.IO.Path]::Combine($pchatRoot , "resources", "pChatIcon.ico")
-        })
+        $window.Icon = [System.IO.Path]::Combine($pchatRoot , "src" , "resources", "pChatIcon.ico")
+        Write-Host "Value " [System.IO.Path]::Combine($pchatRoot , "src" , "resources", "pChatIcon.ico")
         $window.Title = "Room: $($Hash.RoomName)"
 
         $user = $Hash.User
