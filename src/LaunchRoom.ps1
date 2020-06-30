@@ -193,15 +193,37 @@ $consumer.AddScript({
                 # parse messages of form '[name]: text' to colorize the name
                 if (($str.Length -gt 0) -and ($str[0] -eq "[") -and ($idx -gt -1)) {
                     $username = $str.Substring(0, $str.IndexOf(":"))
-                    $content = $str.Substring($str.IndexOf(":")) + "`r"
+                    $content = $str.Substring($str.IndexOf(":"))
 
                     $nameRun = New-Object System.Windows.Documents.Run($username)
                     $nameRun.Foreground = [System.Windows.Media.Brushes]::Blue
 
-                    $contentRun = New-Object System.Windows.Documents.Run($content)
-
                     $Hash.HistoryParagraph.Inlines.Add($nameRun)
-                    $Hash.HistoryParagraph.Inlines.Add($contentRun)
+
+                    # look for hyperlinks
+                    $parts = $content.Split(' ')
+                    foreach ($part in $parts) {
+                        if ($part.StartsWith("https://")) {
+                            $link = New-Object System.Windows.Documents.Hyperlink
+                            $link.IsEnabled = $true
+                            $link.Inlines.Add("$part")
+                            $link.NavigateUri = New-Object System.Uri -ArgumentList $part
+                            $link.Add_RequestNavigate({ Start-Process $part }.GetNewClosure())
+
+                            $Hash.HistoryParagraph.Inlines.Add($link)
+
+                            $partRun = New-Object System.Windows.Documents.Run(" ")
+                            $Hash.HistoryParagraph.Inlines.Add($partRun)
+                        }
+                        else {
+                            $partRun = New-Object System.Windows.Documents.Run("$part ")
+
+                            $Hash.HistoryParagraph.Inlines.Add($partRun)
+                        }
+                    }
+
+                    $partRun = New-Object System.Windows.Documents.Run("`r")
+                    $Hash.HistoryParagraph.Inlines.Add($partRun)
 
                 } else {
                     $Hash.HistoryParagraph.Inlines.Add((New-Object System.Windows.Documents.Run("$($str)`r")))
