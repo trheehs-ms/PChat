@@ -63,7 +63,7 @@ $joinRoomButton.Add_Click({
         $selectedRoom = $randomVal
         Write-Host "Value " + $selectedRoom
    }
-   Start-Process powershell -ArgumentList "$($pchatRoot)\LaunchRoom.ps1 '$selectedRoom'" -windowstyle hidden
+   Start-Process powershell -ArgumentList "$($pchatRoot)\lnks\LaunchRoom.lnk '$selectedRoom'" -windowstyle hidden
    stop-process -Id $PID
 }.GetNewClosure())
 
