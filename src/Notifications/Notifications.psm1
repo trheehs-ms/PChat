@@ -1,10 +1,19 @@
-Function Send-Notification ($Title, $Content) {
-
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
 [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
 
 $app = '7d9b4369-2581-44ee-a47b-3eb7407ebcab'
+
+Function Send-Notification {
+    [CmdletBinding()]
+    param (
+        [String] $Title,
+        [string] $Content
+    )
+    
+    # to get path to logo image file for incorporation into notifications later
+    #$pchatRoot = Get-Location | Split-Path
+    #$logoPath = Get-ChildItem -Directory "$pchatRoot\resources\pChatIconNew.png"
 
 $template = @"
 <toast>
