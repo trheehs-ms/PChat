@@ -53,6 +53,8 @@ $Hash.HistoryFile = [System.IO.Path]::Combine($Hash.RoomRoot, "history.txt")
 $Hash.RoomName = $roomName
 $Hash.PendingMessages = [System.Collections.Concurrent.BlockingCollection[string]]::new([ConcurrentQueue[string]]::new())
 $Hash.CancellationSource = New-Object System.Threading.CancellationTokenSource
+$Hash.IgnoreFileChanges = $false
+$Hash.DebugFile = [System.IO.Path]::Combine($Hash.RoomRoot, "debug.txt")
 
 Write-Host "Launching chat for room $roomName"
 
@@ -137,6 +139,7 @@ $formCmd.AddScript({
     $form = Get-ChatForm
     $form.ShowDialog()
 
+    $Hash.IgnoreFileChanges = $true
     Add-ChatEvent "$($Hash.User) left the chat"
 })
 
@@ -149,7 +152,11 @@ $fsCmd.AddScript({
     # in certain cases (such as a fresh room), we can't immediately watch this file for changes.
     # add a loop here in case Get-Content exits prematurely
     while (!$Hash.CancellationSource.IsCancellationRequested) {
-        Get-Content $Hash.HistoryFile -Tail 4 -Wait | ForEach-Object{ $Hash.PendingMessages.Add($_.Trim()) }
+        Get-Content $Hash.HistoryFile -Tail 50 -Wait | ForEach-Object { 
+            if (!$Hash.IgnoreFileChanges) {
+                $Hash.PendingMessages.Add($_.Trim()) 
+            }
+        }
     }
 })
 $fsCmd.RunspacePool = $RunspacePool
@@ -161,85 +168,136 @@ $consumer.AddScript({
     #import notification module
     Import-Module "$($Hash.PChatRoot)\Notifications"
 
+    function Add-MessagesToRichTextBox($rawMessages, $sendNotification) {
+        # jump into the UI thread at this point and do this as a batch
+        $Hash.HistoryTextbox.Dispatcher.Invoke([action]{
+            # aggregate the changes all at once to avoid flicker in the textbox
+            $changes = @()
+            foreach ($rawMessage in $rawMessages) {
+                if ($sendNotification -and !($rawMessage.StartsWith("[$($Hash.User)]") -or $rawMessage.StartsWith($Hash.User) -or $rawMessage.StartsWith("pchatimage"))) {
+                    Send-Notification -Title "PChat Notificaton" -Content "$rawMessage"
+                }
+
+                $changes += Get-FlowDocumentChanges($rawMessage)
+            }
+
+            foreach ($change in $changes) {
+                if ($change["type"] -eq "inline-addition") {
+                    foreach ($run in $change["runs"]) {
+                        $Hash.HistoryParagraph.Inlines.Add($run)
+                    }
+                } elseif ($change["type"] -eq "child-addition") {
+                    $Hash.HistoryParagraph.AddChild($change["child"])
+                }
+            }
+
+           $Hash.HistoryTextbox.ScrollToEnd()
+        }.GetNewClosure())
+    }
+
+    function Get-FlowDocumentChanges($rawMessage) {
+        $changes = @()
+
+        # we have 2 interesting classes of 'rawMessage'.
+        # each has different changes to the flow document
+        
+        # (1) [alias]: blah blah may have a hyperlink
+        # (2) pchatimage:\\file\path\here.bmp
+        # (3) alias entered/left the room
+        
+        # case (1)
+        if ($rawMessage.StartsWith("[")) {
+            $change = @{"type"="inline-addition"; "runs"=@()}
+
+            # build the changes to colorize the [alias] portion
+
+            $username = $rawMessage.Substring(0, $rawMessage.IndexOf(":"))
+            $content = $rawMessage.Substring($rawMessage.IndexOf(":"))
+
+            $nameRun = New-Object System.Windows.Documents.Run($username)
+            $nameRun.Foreground = [System.Windows.Media.Brushes]::Blue
+
+            $change["runs"] += $nameRun
+
+            # replace any https:// addresses with a clickable hyperlink
+            $parts = $content.Split(' ')
+            foreach ($part in $parts) {
+                if ($part.StartsWith("https://")) {
+                    $link = New-Object System.Windows.Documents.Hyperlink
+                    $link.IsEnabled = $true
+                    $link.Inlines.Add("$part")
+                    $link.NavigateUri = New-Object System.Uri -ArgumentList $part
+                    $link.Add_RequestNavigate({ Start-Process $part }.GetNewClosure())
+
+                    $change["runs"] += $link
+
+                    $spaceRun = New-Object System.Windows.Documents.Run(" ")
+                    $change["runs"] += $spaceRun
+                }
+                else {
+                    $partRun = New-Object System.Windows.Documents.Run("$part ")
+                    $change["runs"] += $partRun
+                }
+            }
+
+            # append a newline
+            $newlineRun = New-Object System.Windows.Documents.Run("`r")
+            $change["runs"] += $newlineRun
+
+            $changes += $change
+        # case (2)
+        } elseif ($rawMessage.StartsWith("pchatimage:")) {
+            $imagePath = $rawMessage.Substring(("pchatimage:").Length)
+
+            # pchat image handling
+            $bitmapImage = New-Object System.Windows.Media.Imaging.BitmapImage -ArgumentList $imagePath
+            $image = New-Object System.Windows.Controls.Image
+            $image.Source = $bitmapImage
+
+            # need this else it'll fill to the screen
+            $image.Width = $bitmapImage.Width
+            $image.Height = $bitmapImage.Height
+
+            $container = New-Object System.Windows.Documents.InlineUIContainer -ArgumentList $image       
+            
+            $change1 = @{"type"="child-addition"; "child"=$container}
+            $changes += $change1
+
+            # append a newline
+            $newlineRun = New-Object System.Windows.Documents.Run("`r")
+            $change2 = @{"type"="inline-addition"; "runs"=@( $newlineRun )}
+            
+            $changes += $change2
+        # case (3)
+        } else {
+            $run = New-Object System.Windows.Documents.Run("$($rawMessage)`r")
+            $change = @{"type"="inline-addition"; "runs"=@($run)}
+
+            $changes += $change
+        }
+            
+        return $changes
+    }
+
     # race condition here.  we may end up processing new messages before the History Textbox is fully setup.
     # add a loop here to wait until the history textbox is setup before processing pending messages
-    while (($Hash.HistoryTextbox.Document.Blocks.Count) -eq 0) {
+    while ((($Hash.HistoryTextbox.Document.Blocks.Count) -eq 0) -and (!$Hash.CancellationSource.IsCancellationRequested)) {
         Start-Sleep -Milliseconds 250
     }
 
+    # treat initial messages separately, as they are likely historical
+    # we do not want to show toast notification for them
+    $oldMessages = @()
+    $oldMessage = ''
+    while ($Hash.PendingMessages.TryTake([ref]$oldMessage)) {
+        $oldMessages += $oldMessage
+    }
+    Add-MessagesToRichTextBox $oldMessages $false
+
+    # all caught-up with old message.  hit the new ones
     foreach ($pendingMessage in $Hash.PendingMessages.GetConsumingEnumerable($Hash.CancellationSource.Token)) {
         $str = $pendingMessage.Trim()
-        # handle the special inline image (via screenshot)
-        if ($str.StartsWith("pchatimage:")) {
-            $imagePath = $str.Substring(("pchatimage:").Length)
-            $Hash.HistoryTextbox.Dispatcher.Invoke([action]{
-                $bitmapImage = New-Object System.Windows.Media.Imaging.BitmapImage -ArgumentList $imagePath
-                $image = New-Object System.Windows.Controls.Image
-                $image.Source = $bitmapImage
-
-                # need this else it'll fill to the screen
-                $image.Width = $bitmapImage.Width
-                $image.Height = $bitmapImage.Height
-
-                $container = New-Object System.Windows.Documents.InlineUIContainer -ArgumentList $image          
-                $Hash.HistoryParagraph.AddChild($container)
-                $Hash.HistoryParagraph.Inlines.Add((New-Object System.Windows.Documents.Run("`r")))
-                $Hash.HistoryTextbox.ScrollToEnd()
-            })
-        } else {
-            $Hash.HistoryTextbox.Dispatcher.Invoke([action]{ 
-                # colorize the username
-                $idx = $str.IndexOf(":")
-
-                # send toast notification if message is from someone else
-                # would like to wrap in a loop to execute only if running as background task
-                if (!$str.Contains($Hash.User)) {
-                    Send-Notification -Title "PChat Notificaton" -Content "$str"
-                }
-
-                # parse messages of form '[name]: text' to colorize the name
-                if (($str.Length -gt 0) -and ($str[0] -eq "[") -and ($idx -gt -1)) {
-                    $username = $str.Substring(0, $str.IndexOf(":"))
-                    $content = $str.Substring($str.IndexOf(":"))
-
-                    $nameRun = New-Object System.Windows.Documents.Run($username)
-                    $nameRun.Foreground = [System.Windows.Media.Brushes]::Blue
-
-                    $Hash.HistoryParagraph.Inlines.Add($nameRun)
-
-                    # look for hyperlinks
-                    $parts = $content.Split(' ')
-                    foreach ($part in $parts) {
-                        if ($part.StartsWith("https://")) {
-                            $link = New-Object System.Windows.Documents.Hyperlink
-                            $link.IsEnabled = $true
-                            $link.Inlines.Add("$part")
-                            $link.NavigateUri = New-Object System.Uri -ArgumentList $part
-                            $link.Add_RequestNavigate({ Start-Process $part }.GetNewClosure())
-
-                            $Hash.HistoryParagraph.Inlines.Add($link)
-
-                            $partRun = New-Object System.Windows.Documents.Run(" ")
-                            $Hash.HistoryParagraph.Inlines.Add($partRun)
-                        }
-                        else {
-                            $partRun = New-Object System.Windows.Documents.Run("$part ")
-
-                            $Hash.HistoryParagraph.Inlines.Add($partRun)
-                        }
-                    }
-
-                    $partRun = New-Object System.Windows.Documents.Run("`r")
-                    $Hash.HistoryParagraph.Inlines.Add($partRun)
-
-                } else {
-                    $Hash.HistoryParagraph.Inlines.Add((New-Object System.Windows.Documents.Run("$($str)`r")))
-                    $notify
-                }
-
-                $Hash.HistoryTextbox.ScrollToEnd()
-            })
-        }
+        Add-MessagesToRichTextBox @($str) $true
     }
 })
 
