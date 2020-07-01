@@ -39,13 +39,17 @@ PChat is designed to run on a shared drive directory that users require read/wri
 
 **Note:** To exit during screen capture mode press the `esc` key.
 
-### Opening Multiple Chats
+### Multiple Chats
 
-1. With a chat room open, follow the above steps to launch a new instance of PChat in a seperate window.
+1. To join multiple chat rooms, follow the above steps to launch a new instance of PChat, a seperate window will open.
 
 ### Sharing Links
 
-1. When a URL is shared in PChat a hyperlink will be automatically created in the chat history window. This allows anyone to click and open links directly.
+When a URL is shared in PChat a hyperlink will be automatically created in the chat history window. This allows anyone to click and open links directly.
+
+### PCHat Notifications
+
+Notiications are sent to users if there is activity from other users in the same chat room. Notifications are visual only, audible notifications have been silenced.
 
 #### PChat Admin Actions
 
