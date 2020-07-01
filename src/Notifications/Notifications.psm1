@@ -15,8 +15,9 @@ $template = @"
         </binding>
     </visual>
     <actions>
-    <action activationType="background" content="Ack" arguments="later"/>
-  </actions>
+        <action activationType="background" content="Ack" arguments="later"/>
+    </actions>
+    <audio silent="true"/>
 </toast>
 "@
 

@@ -47,6 +47,10 @@ PChat is designed to run on a shared drive directory that users require read/wri
 
 1. When a URL is shared in PChat a hyperlink will be automatically created in the chat history window. This allows anyone to click and open links directly.
 
+### PCHat Notifications
+
+Notiications are sent to users if there is activity in chat room. Notifications are visual only, audible notifications have been silenced.
+
 #### PChat Admin Actions
 
 1. The `GenerateShortcut.ps1` script only needs to be run a single time by PChat administrators. *Users should only launch PChat using the logo icon.*
