@@ -1,38 +1,52 @@
-# PCHAT
+# PChat
 
-## What is Pchat?
-Pchat is a simple file based I/O chat solution that allows users to talk to each other and share screen captures for collaboration.
+## What is PChat
 
-## Starting Up pChat
-1. Click on the `pChat` shortcut to start pchat
-2. Do not click or close out any of the powershell or cmd windows that briefly open.
-3. Choose a chat room from the selection drop down.
-4. Once a room has been seleced, press the join room button.
+PChat is a simple, lightweight file I/O based chat solution, created to enhance user collaboration. It is written using PowerShell and designed to be easy to deploy, operate and maintain.
 
-## Creating A Chat Room
-1. Follow Starting Up pChat until step 3.
-2. If you wish to create a new chat room simply select create room.
-3. Type in the name of the chat room you wish to be created and click create.
-* When creating a room once the room is created you will automatically be brought into the room.
-* Do not click the powershell and cmd windows that briefly open during the creation process.
+### Launch PChat
 
-## Sharing A Screenshot
-1. Join a chatroom in the steps listed above.
-2. Click the Send Screenshot button.
-3. The screen will be cover by a transparent grey box, and the cursor will become a area select symbol.
-4.  Click, hold and drag the cursor over the area you wish to take a screen shot of the let go.
-* After letting go the screen shot will send automatically
-* To exit screen capture mode press the esc key.
+1. Click on the `PChat` icon shortcut to launch PChat application.
 
-## Opening Multiple Chats
-1. When one chat is open, simply folow the steps for Starting Up pChat again.
-* The pChat icon can be saved to desktop or to taskbar for quick access.
+    **Note:** Please do not click on, close or engage with any of the Powershell or command line windows that flash open briefly during startup. Allow a moment for the scripts to run and the UI to load and boot.
 
-## Sharing A Link
-1. Simply paste the link into the chat, and a hyperlink will be created, allowing anyone in the chat to click the link directly and be brought to it.
+    **Note:** You can save the `PChat` icon to your desktop for quick access.
 
-## First time Set Up Pchat (Admins Only)
-1. Get permissions to access the file share
-2. Launch a powershell window
-3. Navigate to the pchat directory, then to the `chat` subdirectory
-4. Run `generateShortcut.ps1` in the powershell window to generate the shortcut for pchat
+### Select a Chat Room
+
+1. Choose a chat room from the selection dropdown list.
+2. After selection, click the `Join Room` button.
+3. The new chat room will open and you can begin collaborating.
+
+### Create a Chat Room
+
+1. To create a new chat room click `Create Room`.
+2. A new script will run launching a seperate window.
+3. Type the name name of your new chat room and click `Join Room`.
+
+    **Note:** If a unique chat room name is not entered by the user, you can still click `Join Room` and a new room will be created using a random alphanumeric string for the name.
+
+4. The new chat room will open and you can begin collaborating.
+
+### Share a Screenshot
+
+1. Join a chat room using the steps listed above.
+2. Click the `Send Screenshot` button. This calls the Snipping Tool turning your screen transparent grey.
+3. Click, hold and drag the cursor over a portion of the screen you want to share, then let go.
+4. The screen shot will send automatically
+
+**Note:** To exit during screen capture mode press the `esc` key.
+
+### Opening Multiple Chats
+
+1. With one chat open, folow the above steps to launch a new instance of PChat in a seperate window.
+
+### Sharing Links
+
+1. When a URL is shared in PChat a hyperlink will be automatically created in the chat window. This allows anyone to click and open links directly.
+
+#### PChat Admin Actions
+
+1. The `GenerateShortcut.ps1` script only needs to be run a single time by PChat administrators. *Users should only launch PChat using the logo icon.*
+2. Text files and chat logs with no new activity may be periodically removed. If there is important information stored in PChat text files, please export this to a user owned directory.
+3. Please utilize PChat responsibly and respectfully. : )
