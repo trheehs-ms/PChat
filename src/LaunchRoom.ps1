@@ -194,7 +194,7 @@ $consumer.AddScript({
                 # send toast notification if message is from someone else
                 # would like to wrap in a loop to execute only if running as background task
                 if (!$str.Contains($Hash.User)) {
-                    Send-Notification -Title "PChat Notificaiton" -Content "$str"
+                    Send-Notification -Title "PChat Notificaton" -Content "$str"
                 }
 
                 # parse messages of form '[name]: text' to colorize the name
