@@ -39,8 +39,8 @@ $imagesRoot = [System.IO.Path]::Combine($roomRoot, "images")
 
 New-Item -ItemType Directory -Force -Path $roomRoot
 New-Item -ItemType Directory -Force -Path $imagesRoot
-echo $null >> $historyFile
-echo $null >> $debugLogFile
+Write-Output $null >> $historyFile
+Write-Output $null >> $debugLogFile
 
 # State that gets shared among runspaces
 $Hash = [hashtable]::Synchronized(@{})
@@ -66,8 +66,8 @@ $RunspacePool.Open()
 
 $formCmd = [PowerShell]::Create()
 $formCmd.AddScript({
-    Function Add-ChatEvent($message) {
-        echo "$message" >> $Hash.HistoryFile
+    function Add-ChatEvent($message) {
+        Write-Output "$message" >> $Hash.HistoryFile
     }
 
     function Get-ChatForm {
@@ -105,7 +105,7 @@ $formCmd.AddScript({
             SnippingTool.exe /clip | Out-Null
             $postImage = Get-Clipboard -Format Image
 
-            if (($preImage -eq $null) -or (!$preImage.Size.Equals($postImage.Size))) {
+            if (($null -eq $preImage) -or (!$preImage.Size.Equals($postImage.Size))) {
                 $destFilename = "$(Get-Date -Format "yyyyMMdd-HHmmss")-$([System.Environment]::UserName).bmp"
                 $destFile = [System.IO.Path]::Combine($Hash.ImagesRoot, $destFilename)
 
@@ -122,7 +122,6 @@ $formCmd.AddScript({
                 $sendMessageButton.RaiseEvent((New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)));
             }
         }.GetNewClosure())
-
 
          # add a single paragraph that we can keep appending text and screenshots to
         $historyTextbox = $window.FindName("HistoryTextbox")
@@ -150,7 +149,7 @@ $fsCmd.AddScript({
     # in certain cases (such as a fresh room), we can't immediately watch this file for changes.
     # add a loop here in case Get-Content exits prematurely
     while (!$Hash.CancellationSource.IsCancellationRequested) {
-        Get-Content $Hash.HistoryFile -Tail 4 -Wait | %{ $Hash.PendingMessages.Add($_.Trim()) }
+        Get-Content $Hash.HistoryFile -Tail 4 -Wait | ForEach-Object{ $Hash.PendingMessages.Add($_.Trim()) }
     }
 })
 $fsCmd.RunspacePool = $RunspacePool
@@ -159,9 +158,11 @@ $fsCmd.BeginInvoke()
 # read from the pending history queue and marshal to the UI thread and stylize as appropriate
 $consumer = [PowerShell]::Create()
 $consumer.AddScript({
+    #import notification module
+    Import-Module "$($Hash.PChatRoot)\Notifications"
+
     # race condition here.  we may end up processing new messages before the History Textbox is fully setup.
     # add a loop here to wait until the history textbox is setup before processing pending messages
-
     while (($Hash.HistoryTextbox.Document.Blocks.Count) -eq 0) {
         Start-Sleep -Milliseconds 250
     }
@@ -189,6 +190,12 @@ $consumer.AddScript({
             $Hash.HistoryTextbox.Dispatcher.Invoke([action]{ 
                 # colorize the username
                 $idx = $str.IndexOf(":")
+
+                # send toast notification if message is from someone else
+                # would like to wrap in a loop to execute only if running as background task
+                if (!$str.Contains($Hash.User)) {
+                    Send-Notification -Title "PChat Notificaiton" -Content "$str"
+                }
 
                 # parse messages of form '[name]: text' to colorize the name
                 if (($str.Length -gt 0) -and ($str[0] -eq "[") -and ($idx -gt -1)) {
@@ -227,6 +234,7 @@ $consumer.AddScript({
 
                 } else {
                     $Hash.HistoryParagraph.Inlines.Add((New-Object System.Windows.Documents.Run("$($str)`r")))
+                    $notify
                 }
 
                 $Hash.HistoryTextbox.ScrollToEnd()
@@ -237,7 +245,6 @@ $consumer.AddScript({
 
 $consumer.RunspacePool = $RunspacePool
 $consumer.BeginInvoke()
-
 
 while ($formCmdStatus.IsCompleted -ne $true) {}
 

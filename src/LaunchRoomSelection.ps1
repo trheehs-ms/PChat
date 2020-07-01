@@ -24,7 +24,7 @@ Function Get-Rooms {
     $pchatRoot = Get-PChatRoot
 
     # TODO: would be cool if we only listed ones the user has RW access to
-    Get-ChildItem -Directory "$($pchatRoot)\..\rooms" | %{ $_.Name }
+    Get-ChildItem -Directory "$($pchatRoot)\..\rooms" | ForEach-Object{ $_.Name }
 }
 
 
@@ -44,7 +44,7 @@ $window.add_Loaded({
 
 # populate the rooms
 $roomList = $window.FindName("RoomList")
-Get-Rooms | %{ $roomList.Items.Add($_) } | Out-Null
+Get-Rooms | ForEach-Object { $roomList.Items.Add($_) } | Out-Null
 $roomList.SelectedIndex = 0
 
 # wire up the Join Room button
