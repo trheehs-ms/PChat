@@ -3,7 +3,7 @@ $psFile = [System.IO.Path]::Combine($PsHome , "powershell.exe")
 
 $rootPath = Split-Path $script:MyInvocation.MyCommand.Path
 $srcPath = [System.IO.Path]::Combine($rootPath , "src")
-$resourcePath = [System.IO.Path]::Combine($srcPath , "resource")
+$resourcePath = [System.IO.Path]::Combine($srcPath , "resources")
 $icoFile = [System.IO.Path]::Combine($resourcePath , "pChatIcon.ico")
 $supportShortcutsPath = [System.IO.Path]::Combine($srcPath , "lnks")
 
