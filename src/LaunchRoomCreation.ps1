@@ -73,4 +73,11 @@ $joinRoomButton.Add_Click({
    }
 }.GetNewClosure())
 
+$roomTextbox = $window.FindName("RoomName")
+$roomTextbox.Add_KeyDown({
+    if ($_.Key -eq "Enter" -or $_.Key -eq "Return") {
+        $joinRoomButton.RaiseEvent((New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)));
+    }
+}.GetNewClosure())
+
 $window.ShowDialog()
