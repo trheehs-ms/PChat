@@ -50,7 +50,7 @@ $roomList.SelectedIndex = 0
 # wire up the Join Room button
 $joinRoomButton = $window.FindName("JoinRoomButton")
 $joinRoomButton.Add_Click({
-    $selectedRoom = $roomList.SelectedItem
+    $selectedRoom = $roomList.SelectedItem -replace ' ', [Regex]::Escape('%20')
     Start-Process powershell -ArgumentList "$($pchatRoot)\lnks\LaunchRoom.lnk '$selectedRoom'"
     stop-process -Id $PID
 }.GetNewClosure())
