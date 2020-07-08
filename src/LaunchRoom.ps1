@@ -51,6 +51,7 @@ $Hash.ChatXamlFile = [System.IO.Path]::Combine($Hash.PChatRoot, "xaml", "ChatFor
 $Hash.ImagesRoot = $imagesRoot
 $Hash.HistoryFile = [System.IO.Path]::Combine($Hash.RoomRoot, "history.txt")
 $Hash.RoomName = $roomName
+$Hash.RoomDisplayName = $roomName -replace [Regex]::Escape('%20'), ' '
 $Hash.PendingMessages = [System.Collections.Concurrent.BlockingCollection[string]]::new([ConcurrentQueue[string]]::new())
 $Hash.CancellationSource = New-Object System.Threading.CancellationTokenSource
 $Hash.IgnoreFileChanges = $false
@@ -81,7 +82,7 @@ $formCmd.AddScript({
         # add icon
         $window.Icon = [System.IO.Path]::Combine($pchatRoot , "src" , "resources", "pChatIcon.ico")
         Write-Host "Value " [System.IO.Path]::Combine($pchatRoot , "src" , "resources", "pChatIcon.ico")
-        $window.Title = "Room: $($Hash.RoomName)"
+        $window.Title = "Room: $($Hash.RoomDisplayName)"
 
         $user = $Hash.User
 

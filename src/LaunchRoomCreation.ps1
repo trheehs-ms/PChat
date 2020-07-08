@@ -63,8 +63,14 @@ $joinRoomButton.Add_Click({
         $selectedRoom = $randomVal
         Write-Host "Value " + $selectedRoom
    }
-   Start-Process powershell -ArgumentList "$($pchatRoot)\lnks\LaunchRoom.lnk '$selectedRoom'" -windowstyle hidden
-   stop-process -Id $PID
+   if($selectedRoom -match '[^\w\s-_]') {
+        [System.Windows.MessageBox]::Show("Please do not use any special characters except - and _ in your room name.",'Invalid Input','OK','Error')
+   }
+   else {
+       $selectedRoom = $selectedRoom -replace ' ',[Regex]::Escape('%20')
+       Start-Process powershell -ArgumentList "$($pchatRoot)\lnks\LaunchRoom.lnk '$selectedRoom'" -windowstyle hidden
+       stop-process -Id $PID
+   }
 }.GetNewClosure())
 
 $window.ShowDialog()
