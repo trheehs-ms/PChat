@@ -24,7 +24,7 @@ Function Get-Rooms {
     $pchatRoot = Get-PChatRoot
 
     # TODO: would be cool if we only listed ones the user has RW access to
-    Get-ChildItem -Directory "$($pchatRoot)\..\rooms" | ForEach-Object{ $_.Name }
+    Get-ChildItem -Directory "$($pchatRoot)\..\rooms" | ForEach-Object{ $_.Name -replace [Regex]::Escape('%20'), ' ' }
 }
 
 
