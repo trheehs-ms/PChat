@@ -25,10 +25,12 @@ else {
     Write-Host "The given folder path $supportShortcutsPath already exists"; 
 }
 
+$shortcutArguments = "-windowstyle hidden -executionpolicy bypass"
+
 $shortcutPath = [System.IO.Path]::Combine($rootPath , "pChat.lnk")
 $Shortcut = $WshShell.CreateShortcut($shortcutPath)
 $Shortcut.TargetPath = $psFile
-$Shortcut.Arguments = "-windowstyle hidden " + [System.IO.Path]::Combine($srcPath, "LaunchRoomSelection.ps1")
+$Shortcut.Arguments = $shortcutArguments + " " + [System.IO.Path]::Combine($srcPath, "LaunchRoomSelection.ps1")
 $Shortcut.IconLocation = $icoFile
 $Shortcut.Save()
 
@@ -43,7 +45,7 @@ else {
 $shortcutPath = [System.IO.Path]::Combine($supportShortcutsPath , "LaunchRoomCreation.lnk")
 $Shortcut = $WshShell.CreateShortcut($shortcutPath)
 $Shortcut.TargetPath = $psFile
-$Shortcut.Arguments = "-windowstyle hidden " + [System.IO.Path]::Combine($srcPath, "LaunchRoomCreation.ps1")
+$Shortcut.Arguments = $shortcutArguments + " " + [System.IO.Path]::Combine($srcPath, "LaunchRoomCreation.ps1")
 $Shortcut.IconLocation = $icoFile
 $Shortcut.Save()
 
@@ -57,7 +59,7 @@ else {
 $shortcutPath = [System.IO.Path]::Combine($supportShortcutsPath , "LaunchRoom.lnk")
 $Shortcut = $WshShell.CreateShortcut($shortcutPath)
 $Shortcut.TargetPath = $psFile
-$Shortcut.Arguments = "-windowstyle hidden " + [System.IO.Path]::Combine($srcPath, "LaunchRoom.ps1")
+$Shortcut.Arguments = $shortcutArguments + " " + [System.IO.Path]::Combine($srcPath, "LaunchRoom.ps1")
 $Shortcut.IconLocation = $icoFile
 $Shortcut.Save()
 
